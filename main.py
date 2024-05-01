@@ -16,7 +16,7 @@ import train.factory as train_utils
 
 def parse_args():
     parser = argparse.ArgumentParser(
-            description="Few Shot intent detection with mutual information maximization and contrastive learning")
+            description="Few Shot intent detection with mutual information and contrastive learning")
 
     # data configuration
     parser.add_argument("--data_path", type=str,
