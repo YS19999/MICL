@@ -50,7 +50,7 @@ def parse_args():
                         help="#query examples for each class for each task")
 
     # train/test configuration
-    parser.add_argument("--train_epochs", type=int, default=20,
+    parser.add_argument("--train_epochs", type=int, default=50,
                         help="max num of training epochs")
     parser.add_argument("--train_episodes", type=int, default=100,
                         help="#tasks sampled during each training epoch")
@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=123, help="seed")
     parser.add_argument("--dropout", type=float, default=0.1, help="drop rate")
     parser.add_argument("--lr", type=float, default=1e-5, help="learning rate")
-    parser.add_argument("--patience", type=int, default=10, help="patience")
+    parser.add_argument("--patience", type=int, default=20, help="patience")
     parser.add_argument("--clip_grad", type=float, default=None,
                         help="gradient clipping")
     parser.add_argument("--cuda", type=int, default=0,
