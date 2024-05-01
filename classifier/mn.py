@@ -35,14 +35,14 @@ class Contrast_loss(nn.Module):
 
         # computing masks for contrastive loss
         mask_i = 1. - torch.eye(len_).to(
-            batch_label.device)  # 获得一个对角线全为0，其余全为1的矩阵，去除自己与自己  # sum over items in the numerator
+            batch_label.device)
         label_matrix = batch_label.unsqueeze(0).repeat(len_, 1)
         mask_j = (batch_label.unsqueeze(
-            1) - label_matrix == 0).float() * mask_i  # sum over items in the denominator, 标签句子，属于相同类的为1（不包括自身），不同的为0，
+            1) - label_matrix == 0).float() * mask_i 
         pos_num = torch.sum(mask_j, 1)
 
         # weighted NLL loss
-        s_i = torch.clamp(torch.sum(s * mask_i, 1), min=1e-10)  # 控制最小值大于1e-10
+        s_i = torch.clamp(torch.sum(s * mask_i, 1), min=1e-10) 
         s_j = torch.clamp(s * mask_j, min=1e-10)
         log_p = torch.sum(-torch.log(s_j / s_i) * mask_j, 1) / pos_num
         loss = torch.mean(log_p)
@@ -148,43 +148,30 @@ class MN(BASE):
         YS, YQ = self.reidx_y(YS, YQ)
         XS, YS, XQ, YQ, XS_aug, XQ_aug = self.get_sorted(XS, YS, XQ, YQ, XS_aug, XQ_aug)
 
-        if self.args.classifier == "mn" and self.args.embedding == "ebd":
+        all_x = torch.cat([XS, XQ], dim=0)
+        all_x_aug = torch.cat([XS_aug, XQ_aug], dim=0)
+        inst_label = torch.arange(0, all_x.shape[0], dtype=torch.long, device=all_x.device)
+        inst_label = torch.cat([inst_label, inst_label], dim=0)
+        instance_loss = self.instance_loss(inst_label, all_x, all_x_aug)
 
-            all_x = torch.cat([XS, XQ], dim=0)
-            all_x_aug = torch.cat([XS_aug, XQ_aug], dim=0)
-            inst_label = torch.arange(0, all_x.shape[0], dtype=torch.long, device=all_x.device)
-            inst_label = torch.cat([inst_label, inst_label], dim=0)
-            instance_loss = self.instance_loss(inst_label, all_x, all_x_aug)
+        samples_mean = self._compute_mean(XS)
+        samples_mean_aug = self._compute_mean(XS_aug)
+        task_label = torch.arange(0, self.args.way, dtype=torch.long, device=samples_mean.device)
+        task_label = torch.cat([task_label, task_label], dim=0)
+        task_loss = self.task_loss(task_label, samples_mean, samples_mean_aug)
 
-            samples_mean = self._compute_mean(XS)
-            samples_mean_aug = self._compute_mean(XS_aug)
-            task_label = torch.arange(0, self.args.way, dtype=torch.long, device=samples_mean.device)
-            task_label = torch.cat([task_label, task_label], dim=0)
-            task_loss = self.task_loss(task_label, samples_mean, samples_mean_aug)
+        similar = self.get_distance(XS, XQ)
+        YS_onehot = self._label2onehot(YS)
+        pred = similar.mm(YS_onehot.float())
 
-            similar = self.get_distance(XS, XQ)
-            YS_onehot = self._label2onehot(YS)
-            pred = similar.mm(YS_onehot.float())
+        mi_loss1 = self.get_miloss(XS_aug, XS)
+        mi_loss2 = self.get_miloss(XQ_aug, XQ)
 
-            mi_loss1 = self.get_miloss(XS_aug, XS)
-            mi_loss2 = self.get_miloss(XQ_aug, XQ)
+        loss = F.cross_entropy(pred, YQ)
 
-            loss = F.cross_entropy(pred, YQ)
+        acc = BASE.compute_acc(pred, YQ)
 
-            acc = BASE.compute_acc(pred, YQ)
-
-            loss += 0.7 * instance_loss + 0.7 * task_loss + mi_loss1 + mi_loss2
-
-        else:
-
-            similar = self.get_distance(XS, XQ)
-            YS_onehot = self._label2onehot(YS)
-
-            pred = similar.mm(YS_onehot.float())
-
-            loss = F.cross_entropy(pred, YQ)
-
-            acc = BASE.compute_acc(pred, YQ)
+        loss += 0.7 * instance_loss + 0.7 * task_loss + mi_loss1 + mi_loss2
 
         return acc, loss
 
